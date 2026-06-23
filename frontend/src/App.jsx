@@ -1,122 +1,99 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { Routes, Route } from "react-router-dom";
+import { useState, useEffect } from "react";
+import axios from "axios";
+
+// Components & Pages Imports
+import Navbar from "./components/Navbar";
+import Home from "./pages/Home";
+import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
+import RaiseHelp from "./pages/RaiseRequest.jsx";
+import DashboardWrapper from "./pages/DashboardWrapper.jsx";
+import AddInventory from "./pages/AddInventory.jsx";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import Unauthorized from "./pages/Unauthorized.jsx"; // 👈 Naya page import kiya
+import ProfileWrapper from "./pages/ProfileWrapper.jsx";
 
 function App() {
-  const [count, setCount] = useState(0)
+  // 🌟 Global session states
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Page load hote hi API se current logged-in user check karo
+    axios.get("/api/v1/users/current-user", { withCredentials: true })
+      .then((res) => {
+        setUser(res.data.data); // User state set (contains role)
+      })
+      .catch((err) => {
+        console.log("No active session:", err.message);
+        setUser(null);
+      })
+      .finally(() => {
+        setLoading(false); // Verification complete
+      });
+  }, []);
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      <Navbar user={user} setUser={setUser} /> {/* Prop pass kar di taaki navbar bhi dynamic ho sake */}
 
-      <div className="ticks"></div>
+      <main className="flex-grow">
+        <Routes>
+          {/* 🌐 PUBLIC ROUTES */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          
+          {/* 🛡️ SECURITY BLOCK ERROR NODE */}
+          <Route path="/unauthorized" element={<Unauthorized />} />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+          {/* 🔒 PROTECTED FLOWS (Pass loading state also) */}
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute userRole={user?.role} allowedRoles={["victim", "ngo", "volunteer", "admin"]} loading={loading}>
+                <DashboardWrapper />
+              </ProtectedRoute>
+            } 
+          />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute userRole={user?.role} allowedRoles={["victim", "ngo", "volunteer", "admin"]} loading={loading}>
+                <ProfileWrapper />
+              </ProtectedRoute>
+            } 
+          />
+          
+          
+          <Route 
+            path="/raise-help" 
+            element={
+              <ProtectedRoute userRole={user?.role} allowedRoles={["victim"]} loading={loading}>
+                <RaiseHelp />
+              </ProtectedRoute>
+            } 
+          />
+
+          {/* Cleaned up duplicate route - now strictly guarded */}
+          <Route
+            path="/inventory"
+            element={
+              <ProtectedRoute userRole={user?.role} allowedRoles={["ngo", "admin"]} loading={loading}>
+                <AddInventory />
+              </ProtectedRoute>
+            }
+          />
+          
+          
+          
+        </Routes>
+      </main>
     </>
-  )
+  );
 }
 
-export default App
+export default App;

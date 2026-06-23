@@ -1,0 +1,49 @@
+# =========================================================================
+# 📦 DEPENDENCIES (Heavy folders, installable via 'npm install')
+# =========================================================================
+node_modules/
+/dist
+/build
+package-lock.json
+
+# =========================================================================
+# ⚠️ SECRETS & ENVIRONMENT VARIABLES (Kabhi bhi GitHub pe nahi jaani chahiye!)
+# =========================================================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+config.json
+
+# =========================================================================
+# 📝 LOGS & DEBUGGING (System generated crash and runtime logs)
+# =========================================================================
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================================================================
+# 💻 IDE / TEXT EDITORS (VS Code & WebStorm personal preferences)
+# =========================================================================
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# =========================================================================
+# 🍏/🪟 OS GARBAGE FILES (Mac and Windows system metadata)
+# =========================================================================
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
