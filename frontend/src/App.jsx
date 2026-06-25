@@ -9,7 +9,7 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import RaiseHelp from "./pages/RaiseRequest.jsx";
 import DashboardWrapper from "./pages/DashboardWrapper.jsx";
-import AddInventory from "./pages/AddInventory.jsx";
+import InventoryDashboard from "./pages/AddInventory.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Unauthorized from "./pages/Unauthorized.jsx"; // 👈 Naya page import kiya
 import ProfileWrapper from "./pages/ProfileWrapper.jsx";
@@ -83,10 +83,12 @@ function App() {
             path="/inventory"
             element={
               <ProtectedRoute userRole={user?.role} allowedRoles={["ngo", "admin"]} loading={loading}>
-                <AddInventory />
+                <InventoryDashboard />
               </ProtectedRoute>
             }
           />
+
+
           
           
           

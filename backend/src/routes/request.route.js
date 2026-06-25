@@ -9,8 +9,8 @@ import {
   rejectRequest,
   getRequestById,
   assignRequest,
-  startInProgress,
-  resolvedRequest
+  
+  
 } from "../controllers/request.controller.js"; // Aapka controller path
 
 const router = Router();
@@ -38,8 +38,7 @@ router.patch("/reject/:requestId", verifyJWT, rejectRequest);
 
 // Volunteer Lifecycle Actions Pipeline
 router.patch("/assign/:requestId", verifyJWT, assignRequest);
-router.patch("/in-progress/:requestId", verifyJWT, startInProgress);
-router.patch("/resolved/:requestId", verifyJWT, resolvedRequest);
+
 
 
 // =========================================================================

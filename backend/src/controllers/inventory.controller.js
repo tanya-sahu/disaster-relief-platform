@@ -103,8 +103,8 @@ const getAllMyInventory = asyncHandler(async (req, res) => {
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 const getInventoryById = asyncHandler(async (req, res) => {
-  const { inventoryId } = req.params;
-  const cleanId = inventoryId?.trim();
+  const { id } = req.params;
+  const cleanId = id?.trim();
 
   validateId(cleanId, "Inventory");
   const inventory = await Inventory.findById(cleanId).populate(
@@ -128,8 +128,11 @@ const updateInventory = asyncHandler(async (req, res) => {
   if (!["ngo", "admin"].includes(req.user.role)) {
     throw new ApiError(403, "Only NGO and Admin can update inventory");
   }
-  const { inventoryId } = req.params;
-  const cleanId = inventoryId?.trim();
+  const { id } = req.params;
+  console.log("Inventory ID:" , id)
+  const cleanId = id?.trim();
+
+  console.log("CleanId: " , cleanId)
 
   validateId(cleanId, "Inventory");
   const existingInventory = await Inventory.findById(cleanId);
@@ -189,10 +192,14 @@ const deleteInventory = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Only NGO and Admin can delete inventory");
   }
 
-  const { inventoryId } = req.params;
-  const cleanId = inventoryId?.trim();
+  const { id } = req.params;
+  console.log("InventoryId:" , id)
+  const cleanId = id?.trim();
 
   validateId(cleanId, "Inventory");
+
+  console.log("CleanId:" , cleanId)
+
 
   const inventory = await Inventory.findById(cleanId);
 

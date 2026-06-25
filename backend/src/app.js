@@ -32,16 +32,14 @@ app.use(cookieParser());
 // 🌟 4. Router Imports
 import userRouter from "./routes/user.route.js";
 import requestRouter from "./routes/request.route.js";
-import disasterRouter from "./routes/disaster.route.js";
 import inventoryRouter from "./routes/inventory.route.js";
-import resourceRouter from "./routes/resource.route.js";
+import allocateRouter from "./routes/allocation.route.js"
 
 
 // 🌟 5. Routes Definition
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/requests", requestRouter);
 app.use("/api/v1/inventory", inventoryRouter);
-app.use("/api/v1/disasters", disasterRouter);
-app.use("/api/v1/resources", resourceRouter);
+app.use("/api/v1/allocate", allocateRouter);
 
 export { app };

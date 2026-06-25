@@ -7,23 +7,48 @@ const requestSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-
     disaster: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Disaster",
     },
 
-    requestType: {
-      type: [String],
-      enum: ["food", "water", "medical", "shelter", "rescue , other"],
-      required: true,
-    },
+    // 🌟 Har resource ka apna hisab-kitab
+    requestedItems: [
+      {
+        itemType: {
+          type: String,
+          enum: ["food", "water", "medical", "shelter", "rescue", "other"],
+          required: true,
+        },
+        requiredQuantity: {
+          type: Number,
+          required: true,
+          min: [1, "Quantity kam se kam 1 honi chahiye"],
+        },
+        fulfilledQuantity: {
+          type: Number,
+          default: 0,
+          // Custom validator taaki fulfilled quantity required se zyada na ho jae
+          validate: {
+            validator: function (value) {
+              return value <= this.requiredQuantity;
+            },
+            message:
+              "Fulfilled quantity, required quantity se zyada nahi ho sakti!",
+          },
+        },
+        itemStatus: {
+          type: String,
+          enum: ["pending", "partially-fulfilled", "fulfilled"],
+          default: "pending",
+        },
+      },
+    ],
 
     description: {
       type: String,
       required: true,
     },
-
     location: {
       type: String,
       required: true,
@@ -35,37 +60,38 @@ const requestSchema = new mongoose.Schema(
       default: "medium",
     },
 
+    // 🌟 Streamlined Lifecycle Status
     status: {
       type: String,
-      enum: ["pending", "assigned", "in-progress", "resolved"],
+      enum: [
+        "pending",
+        "approved",
+        "partially-fulfilled",
+        "fulfilled",
+        "rejected",
+      ],
       default: "pending",
+    },
+
+    isVolunteerAssigned: {
+      type: Boolean,
+      default: false,
+      
     },
 
     assignedVolunteer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
-
-    assignedResources: [
+    allocations: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Resource",
+        ref: "Allocation",
       },
     ],
-    assignedShelter: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Shelter",
-    },
-
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-    },
-
-    approvalStatus: {
-      type: String,
-      enum: ["pending", "approved", "rejected"],
-      default: "pending",
     },
 
     approvedAt: {
@@ -73,7 +99,6 @@ const requestSchema = new mongoose.Schema(
       default: null,
     },
   },
-
   { timestamps: true },
 );
 

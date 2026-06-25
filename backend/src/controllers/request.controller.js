@@ -23,46 +23,67 @@ const createRequest = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Only victims and NGOs can create requests");
   }
 
-  const { requestType, description, location, priority } = req.body;
+  // Frontend se ab hum 'items' bhejenge (Array of Objects)
+  // Format: items = [{ itemType: "food", requiredQuantity: 100 }, { itemType: "water", requiredQuantity: 50 }]
+  const { items, description, location, priority } = req.body;
 
   // 2. Validation
-  // Check karo ki location aur description khali string toh nahi hain
   const hasEmptyStrings = [description, location].some(
     (field) => !field || field.trim() === "",
   );
 
-  // Check karo ki requestType sahi se array hai aur usme kam se kam ek item hai
-  const hasNoRequestType =
-    !requestType || !Array.isArray(requestType) || requestType.length === 0;
+  // Check karo ki items array sahi se aaya hai aur khali nahi hai
+  const hasNoItems = !items || !Array.isArray(items) || items.length === 0;
 
-  if (hasEmptyStrings || hasNoRequestType) {
+  if (hasEmptyStrings || hasNoItems) {
     throw new ApiError(
       400,
-      "Request type (at least one), description, and location are required",
+      "Requested items (at least one), description, and location are required",
     );
   }
 
-  // 3. Robust Duplicate Check (For Arrays)
-  // Yeh check karega ki kya is user ne isi location par same description ke sath pehle se request dali hui hai
-  // Aur kya us request ke saare types matches hote hain ($all operator se order ka farq nahi padta)
+  // Items ke andar ka data validate karo (Ki har item me type aur positive quantity ho)
+  const isInvalidItems = items.some(
+    (item) => !item.itemType || !item.requiredQuantity || item.requiredQuantity <= 0
+  );
+
+  if (isInvalidItems) {
+    throw new ApiError(400, "Invalid items format or negative quantity provided");
+  }
+
+  // 3. Robust Duplicate Check (For Objects Inside Array)
+  // Hum check karenge ki kya isi user ne same location par inhi types ke items ki request pehle se dali hai
+  // $elemMatch se hum sub-documents ke andar types check kar sakte hain
+  const itemTypesArray = items.map(i => i.itemType);
+
   const existedRequest = await Request.findOne({
     createdBy: req.user._id,
     location: location.trim(),
     description: description.trim(),
-    requestType: { $all: requestType }, // 👈 $all operator check karta hai ki saare selected types pehle se hain ya nahi
+    "requestedItems.itemType": { $all: itemTypesArray }, // 👈 Check karega ki yeh saare types pehle se uski kisi request me hain ya nahi
+    status: "pending" // Agar purani request already fulfill ho chuki hai, toh nayi request banane denge
   });
 
   if (existedRequest) {
-    throw new ApiError(400, "An identical request already exists");
+    throw new ApiError(400, "An identical pending request already exists");
   }
 
   // 4. Create Request in Database
+  // Frontend se aaye items array ko requestedItems me map kar dete hain
+  const requestedItems = items.map(item => ({
+    itemType: item.itemType,
+    requiredQuantity: Number(item.requiredQuantity),
+    fulfilledQuantity: 0,
+    itemStatus: "pending"
+  }));
+
   const createdRequest = await Request.create({
-    requestType, // 👈 Model mein type: [String] hone par yeh array smoothly save ho jayega
+    requestedItems, // 👈 Naya structure array smooth save hoga
     description: description.trim(),
     location: location.trim(),
     priority: priority || "medium",
     createdBy: req.user._id,
+    status: "pending"
   });
 
   // 5. Response Return
@@ -100,11 +121,11 @@ const approveRequest = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Request not found");
   }
 
-  if (request.approvalStatus !== "pending") {
+  if (request.status !== "pending") {
     throw new ApiError(400, "Request already processed");
   }
 
-  request.approvalStatus = "approved";
+  request.status = "approved";
   request.approvedBy = req.user._id;
   request.approvedAt = new Date();
 
@@ -139,11 +160,11 @@ const rejectRequest = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Request not found");
   }
 
-  if (request.approvalStatus !== "pending") {
+  if (request.status !== "pending") {
     throw new ApiError(400, "Request already processed");
   }
 
-  request.approvalStatus = "rejected";
+  request.status = "rejected";
   request.approvedBy = req.user._id;
 
   await request.save();
@@ -165,7 +186,8 @@ const getAllRequest = asyncHandler(async (req, res) => {
     priority,
     location,
     disasterId,
-    approvedStatus,
+    isVolunteerAssigned
+    
   } = req.query;
 
   const filter = {};
@@ -173,6 +195,7 @@ const getAllRequest = asyncHandler(async (req, res) => {
   if (requestType) filter.requestType = requestType;
   if (status) filter.status = status;
   if (priority) filter.priority = priority;
+  if(isVolunteerAssigned) filter.isVolunteerAssigned = isVolunteerAssigned
 
   if (location) {
     filter.location = {
@@ -187,17 +210,7 @@ const getAllRequest = asyncHandler(async (req, res) => {
     filter.disaster = cleanDisasterId;
   }
 
-  if (approvedStatus) {
-    filter.approvalStatus = approvedStatus;
-
- 
-    if (
-      (approvedStatus === "approved" || approvedStatus === "rejected") &&
-      req.user?.role === "ngo"
-    ) {
-      filter.approvedBy = req.user._id;
-    }
-  }
+  
 
   const requests = await Request.find(filter)
     .populate("createdBy", "fullName email role")
@@ -257,15 +270,12 @@ const assignRequest = asyncHandler(async (req, res) => {
 
   ensureApproved(request);
 
-  if (request.status !== "pending") {
-    throw new ApiError(400, "Request cannot be assigned again");
-  }
 
   if (request.assignedVolunteer) {
     throw new ApiError(400, "Request already assigned to a volunteer");
   }
 
-  request.status = "assigned";
+  request.isVolunteerAssigned = true;
   request.assignedVolunteer = req.user._id;
 
   await request.save();
@@ -281,99 +291,7 @@ const assignRequest = asyncHandler(async (req, res) => {
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 
-const startInProgress = asyncHandler(async (req, res) => {
-  if (req.user.role !== "volunteer") {
-    throw new ApiError(403, "Only volunteers can update status");
-  }
-  const { requestId } = req.params;
 
-  const cleanId = requestId?.trim();
-
-  validateId(cleanId, "Request");
-
-  // 1. request find
-  const request = await Request.findById(cleanId);
-
-  if (!request) {
-    throw new ApiError(404, "Request not found");
-  }
-
-  ensureApproved(request);
-
-  // 3. must be assigned first
-  if (request.status !== "assigned") {
-    throw new ApiError(400, "Request must be assigned first");
-  }
-
-  // 5. optional safety: only assigned volunteer can update
-  if (
-    !request.assignedVolunteer ||
-    request.assignedVolunteer.toString() !== req.user._id.toString()
-  ) {
-    throw new ApiError(403, "Not your assigned request");
-  }
-
-  // 6. update status
-  request.status = "in-progress";
-
-  await request.save();
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, request, "Request marked as in-progress"));
-});
-
-/////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////
-const resolvedRequest = asyncHandler(async (req, res) => {
-  if (req.user.role !== "volunteer") {
-    throw new ApiError(403, "Only volunteers can update status");
-  }
-  const { requestId } = req.params;
-
-  const cleanId = requestId?.trim();
-
-  validateId(cleanId, "Request");
-
-  const request = await Request.findById(cleanId);
-
-  if (!request) {
-    throw new ApiError(404, "Request not found");
-  }
-
-  ensureApproved(request);
-
-  if (!["assigned", "in-progress"].includes(request.status)) {
-    throw new ApiError(
-      400,
-      "Request must be assigned or in-progress before resolving",
-    );
-  }
-
-  if (request.status === "resolved") {
-    throw new ApiError(400, "Request is already resolved");
-  }
-
-  // 5. optional safety: only assigned volunteer can update
-  if (
-    !request.assignedVolunteer ||
-    request.assignedVolunteer.toString() !== req.user._id.toString()
-  ) {
-    throw new ApiError(403, "Not your assigned request");
-  }
-
-  // 6. update status
-  request.status = "resolved";
-
-  await request.save();
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, request, "Request marked as resolved"));
-});
 
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
@@ -384,8 +302,11 @@ const getMyRequests = asyncHandler(async (req, res) => {
   const myRequests = await Request.find({
     createdBy: req.user._id,
   })
-    .populate("assignedVolunteer", "fullName phone") // 👈 Volunteer ka naam aur phone fetch karne ke liye
-    .populate("assignedShelter", "name location") // 👈 Shelter ka naam aur location fetch karne ke liye
+    .populate("assignedVolunteer", "fullName phone")
+    .populate("approvedBy", "fullName phone") 
+    // 👈 Volunteer ka naam aur phone fetch karne ke liye
+   
+
     .sort({ createdAt: -1 });
 
   return res
@@ -400,40 +321,45 @@ const getMyRequests = asyncHandler(async (req, res) => {
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
-
 const getMyAssignedRequests = asyncHandler(async (req, res) => {
+  // 1. Role Validation
   if (req.user?.role !== "volunteer") {
     throw new ApiError(403, "Only volunteers can view assigned requests");
   }
 
-  const myAssignedRequests = await Request.find({
+  const { status } = req.query;
+
+  // 2. Base Query: Hamesha logged-in volunteer ki hi requests aayengi
+  const queryConditions = {
     assignedVolunteer: req.user._id,
-  })
-    .populate("createdBy", "fullName email phone")
-    .populate("approvedBy", "fullName email phone")
+  };
 
-    // 🌟 ARRAYS POPULATION FIX: Pass an object instead of a string projection
-    .populate({
-      path: "assignedResources", // Aapke schema ki array field ka naam
-      select: "resourceName category quantity location status", // Jo fields aapko chahiye
-    })
+  // 3. Status handling logic
+  // Agar status aaya hai aur woh "all" NAHI hai, tabhi query mein status filter lagao
+  if (status && status !== "all") {
+    queryConditions.status = status;
+  }
+  // Agar status "all" hai, toh 'queryConditions.status' set hi nahi hoga.
+  // Iska matlab automatically saari statuses ("approved", "partially-fulfilled", "fulfilled") fetch ho jayengi.
 
-    .populate({
-      path: "assignedShelter", // Single object ho ya array, object syntax hamesha safe rehta h
-      select: "name location capacity status contactPerson contactNumber",
-    })
+  // 4. Fetch from Database
+  const myAssignedRequests = await Request.find(queryConditions)
+    .populate("createdBy", "fullName phone")
+    .populate("approvedBy", "fullName phone")
     .sort({ createdAt: -1 });
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        myAssignedRequests,
-        "Your assigned requests fetched successfully",
-      ),
-    );
+    .json(new ApiResponse(200, myAssignedRequests, "Requests fetched successfully"));
 });
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 export {
   createRequest,
   getAllRequest,
@@ -441,8 +367,7 @@ export {
   rejectRequest,
   getRequestById,
   assignRequest,
-  startInProgress,
-  resolvedRequest,
+  
   getMyRequests,
   getMyAssignedRequests,
 };
