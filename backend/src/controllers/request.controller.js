@@ -18,21 +18,16 @@ import {
 /////////////////////////////////////////////////////////////////////////
 
 const createRequest = asyncHandler(async (req, res) => {
-  // 1. Authorization
   if (req.user.role !== "victim" && req.user.role !== "ngo") {
     throw new ApiError(403, "Only victims and NGOs can create requests");
   }
 
-  // Frontend se ab hum 'items' bhejenge (Array of Objects)
-  // Format: items = [{ itemType: "food", requiredQuantity: 100 }, { itemType: "water", requiredQuantity: 50 }]
   const { items, description, location, priority } = req.body;
 
-  // 2. Validation
   const hasEmptyStrings = [description, location].some(
     (field) => !field || field.trim() === "",
   );
 
-  // Check karo ki items array sahi se aaya hai aur khali nahi hai
   const hasNoItems = !items || !Array.isArray(items) || items.length === 0;
 
   if (hasEmptyStrings || hasNoItems) {
@@ -42,7 +37,6 @@ const createRequest = asyncHandler(async (req, res) => {
     );
   }
 
-  // Items ke andar ka data validate karo (Ki har item me type aur positive quantity ho)
   const isInvalidItems = items.some(
     (item) =>
       !item.itemType || !item.requiredQuantity || item.requiredQuantity <= 0,
@@ -55,25 +49,20 @@ const createRequest = asyncHandler(async (req, res) => {
     );
   }
 
-  // 3. Robust Duplicate Check (For Objects Inside Array)
-  // Hum check karenge ki kya isi user ne same location par inhi types ke items ki request pehle se dali hai
-  // $elemMatch se hum sub-documents ke andar types check kar sakte hain
   const itemTypesArray = items.map((i) => i.itemType);
 
   const existedRequest = await Request.findOne({
     createdBy: req.user._id,
     location: location.trim(),
     description: description.trim(),
-    "requestedItems.itemType": { $all: itemTypesArray }, // 👈 Check karega ki yeh saare types pehle se uski kisi request me hain ya nahi
-    status: "pending", // Agar purani request already fulfill ho chuki hai, toh nayi request banane denge
+    "requestedItems.itemType": { $all: itemTypesArray },
+    status: "pending", 
   });
 
   if (existedRequest) {
     throw new ApiError(400, "An identical pending request already exists");
   }
 
-  // 4. Create Request in Database
-  // Frontend se aaye items array ko requestedItems me map kar dete hain
   const requestedItems = items.map((item) => ({
     itemType: item.itemType,
     requiredQuantity: Number(item.requiredQuantity),
@@ -82,7 +71,7 @@ const createRequest = asyncHandler(async (req, res) => {
   }));
 
   const createdRequest = await Request.create({
-    requestedItems, // 👈 Naya structure array smooth save hoga
+    requestedItems,
     description: description.trim(),
     location: location.trim(),
     priority: priority || "medium",
@@ -90,7 +79,6 @@ const createRequest = asyncHandler(async (req, res) => {
     status: "pending",
   });
 
-  // 5. Response Return
   return res
     .status(201)
     .json(
@@ -108,7 +96,6 @@ const createRequest = asyncHandler(async (req, res) => {
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 
-// Step - 2 Approval from NGO
 const approveRequest = asyncHandler(async (req, res) => {
   if (req.user.role !== "ngo") {
     throw new ApiError(403, "Only NGOs can approve requests");
@@ -146,7 +133,6 @@ const approveRequest = asyncHandler(async (req, res) => {
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 
-// Step - 3 Reject from NGO
 
 const rejectRequest = asyncHandler(async (req, res) => {
   if (req.user.role !== "ngo") {
@@ -326,67 +312,54 @@ const getMyRequests = asyncHandler(async (req, res) => {
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 const getMyAssignedRequests = asyncHandler(async (req, res) => {
-  // 1. Role Validation
   if (req.user?.role !== "volunteer") {
     throw new ApiError(403, "Only volunteers can view assigned requests");
   }
 
-  // 2. Extract Query Parameters
   const { status, priority, requestType } = req.query;
 
-  // 3. Dynamic Filter Building
   const filter = {
-    // Note: Agar aapki schema mein logged-in user ko register karne ke liye
-    // field name 'volunteer' ya 'assignedVolunteer' hai, toh uske hisab se match karein.
+
     assignedVolunteer: req.user._id,
     isVolunteerAssigned: true,
   };
 
-  // --- Dynamic String Validation & Normalization ---
-
-  // Status Filter Validation
+ 
   if (
     status &&
     status.trim() !== "" &&
     status.toLowerCase() !== "all" &&
     status.toLowerCase() !== "all statuses"
   ) {
-    // Frontend capital bhej sakta hai (e.g., 'Fulfilled'), usko database layout se query karne ke liye lowercase karein
     filter.status = status.toLowerCase();
   }
 
-  // Priority Filter Validation
   if (
     priority &&
     priority.trim() !== "" &&
     priority.toLowerCase() !== "all" &&
     priority.toLowerCase() !== "all categories"
   ) {
-    // Agar string me 'Critical Priority' pura aa raha hai, to sirf pehla word extract karein
     const priorityClean = priority.split(" ")[0].toLowerCase();
     filter.priority = priorityClean;
   }
 
-  // Category / Item Type Filter Validation (Nested Array Field Check)
   if (
     requestType &&
     requestType.trim() !== "" &&
     requestType.toLowerCase() !== "all" &&
     requestType.toLowerCase() !== "all categories"
   ) {
-    // Case-insensitive matching target arrays tracking ke liye dynamic Regex use karein
     filter["requestedItems.itemType"] = {
       $regex: new RegExp(`^${requestType}$`, "i"),
     };
   }
 
-  // 4. Fetch from Database with Population
   const myAssignedRequests = await Request.find(filter)
     .populate("createdBy", "fullName phone")
     .populate("approvedBy", "fullName phone")
     .sort({ createdAt: -1 });
 
-  // 5. Response Return
   return res
     .status(200)
     .json(

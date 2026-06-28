@@ -38,6 +38,10 @@ const createInventory = asyncHandler(async (req, res) => {
     throw new ApiError(409, "Inventory  already exists");
   }
 
+  if (quantity == 0) status = "out-of-stock";
+  else if (quantity <= 50) status = "low-stock";
+  else status = "available";
+
   const inventory = await Inventory.create({
     resourceName,
     category,

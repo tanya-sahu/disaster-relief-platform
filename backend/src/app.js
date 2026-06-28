@@ -14,8 +14,6 @@ app.use(
   })
 );
 
-// 🌟 2. Path-To-Regexp Safe Pre-flight Handler (No Strings, No Wildcards!)
-// Yeh har incoming request ko check karega aur OPTIONS ko 200 OK dekar pass karega
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
     return res.sendStatus(200); 

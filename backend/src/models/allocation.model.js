@@ -4,12 +4,12 @@ const allocationSchema = new Schema(
   {
     request: {
       type: Schema.Types.ObjectId,
-      ref: "Request", // Aapke Request model ka naam
+      ref: "Request", 
       required: true,
     },
     inventory: {
       type: Schema.Types.ObjectId,
-      ref: "Inventory", // Aapke Inventory model ka naam
+      ref: "Inventory", 
       required: true,
     },
     quantityAssigned: {
@@ -19,7 +19,7 @@ const allocationSchema = new Schema(
     },
     allocatedBy: {
       type: Schema.Types.ObjectId,
-      ref: "User", // Jis admin/ngo ne allocation kiya
+      ref: "User", 
       required: true,
     },
     status: {

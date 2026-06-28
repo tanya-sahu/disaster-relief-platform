@@ -8,7 +8,6 @@ import { Inventory } from "../models/inventory.model.js";
 import mongoose from "mongoose";
 
 export const assignResources = asyncHandler(async (req, res) => {
-  // 1. Role Validation
   if (req.user?.role !== "ngo") {
     throw new ApiError(
       403,
@@ -20,12 +19,10 @@ export const assignResources = asyncHandler(async (req, res) => {
   const cleanId = id?.trim();
   validateId(cleanId, "Request");
 
-  // Start Mongoose Session for ACID Transactions
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    // 2. Fetch Victim Request inside session
     const dbRequest = await Request.findById(cleanId).session(session);
     if (!dbRequest) {
       throw new ApiError(404, "Victim request not found");
@@ -35,7 +32,6 @@ export const assignResources = asyncHandler(async (req, res) => {
       throw new ApiError(400, "This request is already fully fulfilled");
     }
 
-    // 3. Authorization Check
     const approvedById = dbRequest.approvedBy?._id || dbRequest.approvedBy;
     if (!approvedById || req.user._id.toString() !== approvedById.toString()) {
       throw new ApiError(
@@ -46,7 +42,6 @@ export const assignResources = asyncHandler(async (req, res) => {
 
     const createdAllocations = [];
 
-    // 4. Loop through each item
     for (const targetItem of dbRequest.requestedItems) {
       console.log("Processing Type:", targetItem.itemType);
 
@@ -55,7 +50,6 @@ export const assignResources = asyncHandler(async (req, res) => {
       const remainingNeeded =
         targetItem.requiredQuantity - targetItem.fulfilledQuantity;
 
-      // 5. Check NGO's Inventory (FIXED: category matches targetItem.itemType)
       const dbInventory = await Inventory.findOne({
         category: targetItem.itemType,
         managedBy: req.user._id,
@@ -64,22 +58,18 @@ export const assignResources = asyncHandler(async (req, res) => {
 
       console.log(`Inventory found for ${targetItem.itemType}:`, dbInventory);
 
-      // Agar stock nahi hai ya quantity 0 hai toh skip karein
       if (!dbInventory || dbInventory.quantity <= 0) {
         console.log(`Skipping: No stock available for ${targetItem.itemType}`);
         continue;
       }
 
-      // Calculate allocation pool
       const quantityToAssign =
         dbInventory.quantity >= remainingNeeded
           ? remainingNeeded
           : dbInventory.quantity;
 
-      // A. Update NGO Inventory Stock
       dbInventory.quantity -= quantityToAssign;
 
-      // Status Logic update
       if (dbInventory.quantity === 0) {
         dbInventory.status = "out-of-stock";
       } else if (dbInventory.quantity <= 50) {
@@ -89,14 +79,12 @@ export const assignResources = asyncHandler(async (req, res) => {
       }
       await dbInventory.save({ session });
 
-      // B. Update Subdocument Request Progress
       targetItem.fulfilledQuantity += quantityToAssign;
       targetItem.itemStatus =
         targetItem.fulfilledQuantity >= targetItem.requiredQuantity
           ? "fulfilled"
           : "partially-fulfilled";
 
-      // D. Prepare Allocation Logs array
       createdAllocations.push({
         request: cleanId,
         inventory: dbInventory._id,
@@ -106,7 +94,6 @@ export const assignResources = asyncHandler(async (req, res) => {
       });
     }
 
-    // 6. Final Validation
     if (createdAllocations.length === 0) {
       throw new ApiError(
         400,
@@ -114,7 +101,6 @@ export const assignResources = asyncHandler(async (req, res) => {
       );
     }
 
-    // Overarching Status Updates for Request
     const allItemsFulfilled = dbRequest.requestedItems.every(
       (item) => item.itemStatus === "fulfilled",
     );
@@ -128,27 +114,22 @@ export const assignResources = asyncHandler(async (req, res) => {
       dbRequest.status = "partially-fulfilled";
     }
 
-    // 7. Safe Bulk Create using insertMany inside Transaction
     const savedAllocations = await Allocation.insertMany(createdAllocations, {
       session,
     });
 
-    // 🔥 FIXED: Naye allocations array field ko safely handle karna aur update karna
     if (!dbRequest.allocations) {
       dbRequest.allocations = [];
     }
 
-    // Saari generated Allocation IDs ko Request ke allocations array mein push karein
     savedAllocations.forEach((alloc) => {
       dbRequest.allocations.push(alloc._id);
     });
 
     dbRequest.deliveryStatus = "Allocated";
 
-    // Saari details map hone ke baad save karein
     await dbRequest.save({ session });
 
-    // Commit all database changes at once
     await session.commitTransaction();
     session.endSession();
 
@@ -162,112 +143,111 @@ export const assignResources = asyncHandler(async (req, res) => {
         ),
       );
   } catch (error) {
-    // Error aane par saare changes rollback karein
     await session.abortTransaction();
     session.endSession();
     throw error;
   }
 });
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 export const updateDeliveryStatus = asyncHandler(async (req, res) => {
-  // 1. Role Verification
   if (req.user?.role !== "volunteer") {
     throw new ApiError(
       403,
-      "Unauthorized: Only assigned volunteers can update the delivery status."
+      "Unauthorized: Only assigned volunteers can update the delivery status.",
     );
   }
 
-  const { id } = req.params; 
-  const { deliveryStatus } = req.body; // Expecting: "Dispatched", "Out for delivery", "Delivered"
-  
+  const { id } = req.params;
+  const { deliveryStatus } = req.body;
+
   const cleanId = id?.trim();
   validateId(cleanId, "Request");
 
-  const allowedStatuses = ["Assigned", "Dispatched", "Out for delivery", "Delivered"];
+  const allowedStatuses = [
+    "Assigned",
+    "Dispatched",
+    "Out for delivery",
+    "Delivered",
+  ];
   if (!allowedStatuses.includes(deliveryStatus)) {
     throw new ApiError(
       400,
-      `Invalid delivery status. Allowed statuses are: ${allowedStatuses.join(", ")}`
+      `Invalid delivery status. Allowed statuses are: ${allowedStatuses.join(", ")}`,
     );
   }
 
-  // Start Mongoose Session for Multi-Document Changes
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    // 2. Fetch Request
     const dbRequest = await Request.findById(cleanId).session(session);
     if (!dbRequest) {
       throw new ApiError(404, "Victim request not found");
     }
 
-    // 3. Authorization Check
-    const assignedVolunteerId = dbRequest.assignedVolunteer?._id || dbRequest.assignedVolunteer;
-    if (!assignedVolunteerId || req.user._id.toString() !== assignedVolunteerId.toString()) {
+    const assignedVolunteerId =
+      dbRequest.assignedVolunteer?._id || dbRequest.assignedVolunteer;
+    if (
+      !assignedVolunteerId ||
+      req.user._id.toString() !== assignedVolunteerId.toString()
+    ) {
       throw new ApiError(
         403,
-        "Unauthorized: You are not the assigned volunteer for this delivery request."
+        "Unauthorized: You are not the assigned volunteer for this delivery request.",
       );
     }
 
     // ---------------------------------------------------------------------------
     // ⚡ CORE CONDITIONAL LOGIC ENGINE
     // ---------------------------------------------------------------------------
-    
-    // CONDITION 1: Agar overall request status pehle se ya abhi "fulfilled" hai
+
     if (dbRequest.status === "fulfilled") {
-      
-      // A. Pure request ka deliveryStatus ek sath change hoga
       dbRequest.deliveryStatus = deliveryStatus;
 
-      // B. Is Request se jude SABHI allocations ka status same hoyega
       let matchingAllocationStatus = "Allocated";
-      if (deliveryStatus === "Dispatched") matchingAllocationStatus = "Dispatched";
-      if (deliveryStatus === "Delivered") matchingAllocationStatus = "Delivered";
+      if (deliveryStatus === "Dispatched")
+        matchingAllocationStatus = "Dispatched";
+      if (deliveryStatus === "Delivered")
+        matchingAllocationStatus = "Delivered";
 
       if (dbRequest.allocations && dbRequest.allocations.length > 0) {
         await Allocation.updateMany(
           { _id: { $in: dbRequest.allocations } },
           { $set: { status: matchingAllocationStatus } },
-          { session }
+          { session },
         );
       }
-    } 
-    
-    // CONDITION 2: Agar overall request status "partially-fulfilled" hai
-    else if (dbRequest.status === "partially-fulfilled") {
-      
-      // Pure request ka deliveryStatus partial state ke mutabik update hoga
+    } else if (dbRequest.status === "partially-fulfilled") {
       dbRequest.deliveryStatus = deliveryStatus;
 
-      // Filter and loop through items to change subdocument statuses dynamically
-      
-
-      // Target specific allocations only if required (Optional: matching partial entries)
       let partialAllocationStatus = "Allocated";
-      if (deliveryStatus === "Dispatched") partialAllocationStatus = "Dispatched";
+      if (deliveryStatus === "Dispatched")
+        partialAllocationStatus = "Dispatched";
       if (deliveryStatus === "Delivered") partialAllocationStatus = "Delivered";
 
       if (dbRequest.allocations && dbRequest.allocations.length > 0) {
         await Allocation.updateMany(
           { _id: { $in: dbRequest.allocations } },
           { $set: { status: partialAllocationStatus } },
-          { session }
+          { session },
         );
       }
-    }
-    
-    // Error Safeguard if request is still "pending" and directly sent for delivery
-    else {
-      throw new ApiError(400, "Cannot change delivery status. Request must be approved and allocated first.");
+    } else {
+      throw new ApiError(
+        400,
+        "Cannot change delivery status. Request must be approved and allocated first.",
+      );
     }
 
-    // Save changes to dbRequest inside transaction
     await dbRequest.save({ session });
 
-    // Commit Transaction safely
     await session.commitTransaction();
     session.endSession();
 
@@ -277,15 +257,12 @@ export const updateDeliveryStatus = asyncHandler(async (req, res) => {
         new ApiResponse(
           200,
           { request: dbRequest },
-          `Status successfully processed according to requested execution rules.`
-        )
+          `Status successfully processed according to requested execution rules.`,
+        ),
       );
-
   } catch (error) {
-    // Abort and rollback if any operation fails
     await session.abortTransaction();
     session.endSession();
     throw error;
   }
 });
-

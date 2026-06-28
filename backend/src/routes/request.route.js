@@ -47,7 +47,6 @@ router.route("/:id/status").patch(verifyJWT, updateDeliveryStatus);
 // =========================================================================
 // 4. GENERAL DYNAMIC WILDCARD ROUTES (Hamesha Sabse Aakhiri Mein!)
 // =========================================================================
-// ⚠️ Rule: Isko upar rakhne par Express isse match karke baaki routes crash kar deta, ab yeh safe hai.
 router.get("//:requestId", verifyJWT, getRequestById);
 
 

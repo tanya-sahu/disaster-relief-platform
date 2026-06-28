@@ -9,6 +9,7 @@ f/
 # =========================================================================
 # Agar koi specific file rokni hai to uska pura naam likho:
 
+.env
 notes.md
 1.png
 2.png
@@ -24,6 +25,7 @@ vol.png
 *.txt
 *.log
 *.bak
+
 
 # =========================================================================
 # 📦 SAFEGUARD (Kahi galti se inner node_modules push na ho jayein)

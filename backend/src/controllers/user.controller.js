@@ -6,7 +6,6 @@ import jwt from "jsonwebtoken";
 
 console.log("Hey there");
 
-// 🔑 Helper to generate tokens
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
     const user = await User.findById(userId);
