@@ -5,14 +5,10 @@ import cookieParser from "cookie-parser";
 const app = express();
 
 // 🌟 1. Standard CORS Middleware Setup
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:5173", 
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-  })
-);
+app.use(cors({
+    origin: true, // Yeh automatic request bhejne wale link ko allow kar deta hai
+    credentials: true // Cookies transfer karne ke liye yeh zaroori hai
+}));
 
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
