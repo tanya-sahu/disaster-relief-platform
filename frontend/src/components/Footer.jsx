@@ -37,7 +37,7 @@ export default function Footer() {
           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">Connect with Developer</h4>
           <div className="flex gap-4 pt-1">
             <a 
-              href="https://github.com/tanya-sahu/disaster-relief-platform" 
+              href="https://github.com/tanya-sahu" 
               target="_blank" 
               rel="noreferrer" 
               className="text-sm hover:text-white text-slate-400 transition-colors flex items-center gap-1"

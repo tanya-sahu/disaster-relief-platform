@@ -22,9 +22,14 @@ export default function SimpleHero() {
             <button className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-medium rounded-md transition-colors">
               Launch Live Demo
             </button>
-            <button className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md transition-colors">
+            <a
+              href="https://github.com/tanya-sahu/disaster-relief-platform"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md transition-colors"
+            >
               Source Code
-            </button>
+            </a>
           </div>
         </div>
 
@@ -80,6 +85,3 @@ export default function SimpleHero() {
     </div>
   );
 }
-
-
-
