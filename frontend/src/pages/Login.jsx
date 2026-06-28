@@ -23,12 +23,11 @@ export default function Login() {
       });
 
       alert("Logged in successfully! 👋");
-  
 
       // Role-Based Redirection: Backend response se user ka role check karke use uske sahi dashboard par bhejo
-      const userRole = response.data.data.user.role.toLowerCase(); // Assuming response structure
+      console.log("Backend Response:", response.data); // 👈 Yeh line add kijiye
+      const userRole = response.data.data.user.role.toLowerCase();
       window.location.href = "/";
-
     } catch (err) {
       setError(err.response?.data?.message || "Invalid Email or Password");
     } finally {

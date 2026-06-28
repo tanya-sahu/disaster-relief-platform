@@ -1,6 +1,10 @@
 
 import axios from 'axios';
 
+
+// 🚀 Yeh line sabhi requests ke liye cookies on kar degi:
+axios.defaults.withCredentials = true;
+
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
 
 
