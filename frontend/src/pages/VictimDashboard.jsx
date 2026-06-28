@@ -25,7 +25,7 @@ export default function VictimDashboard() {
   const [currentFilter, setCurrentFilter] = useState("All Request");
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showMobileDetail, setShowMobileDetail] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -85,7 +85,7 @@ export default function VictimDashboard() {
         setSelectedRequest(null);
       }
     }
-    setShowMobileDetail(false);
+    setShowDetail(false);
   }, [currentFilter, allRequests]);
 
   const navigationItems = [
@@ -99,7 +99,6 @@ export default function VictimDashboard() {
   ];
 
   const getStatusStyles = (req) => {
-    /* {/* ERROR FIXED: Mapped precisely to the schema 'status' enum keys */
     if (req.status === "rejected")
       return {
         border: "border-red-500",
@@ -143,7 +142,6 @@ export default function VictimDashboard() {
     };
   };
 
-  /* {/* ERROR FIXED: This handler now processes individual item statuses from schema 'requestedItems.itemStatus' */
   const getItemStatusColor = (status) => {
     switch (status) {
       case "fulfilled":
@@ -170,7 +168,7 @@ export default function VictimDashboard() {
 
   const handleSelectRequest = (req) => {
     setSelectedRequest(req);
-    setShowMobileDetail(true);
+    setShowDetail(true);
   };
 
   return (
@@ -231,10 +229,10 @@ export default function VictimDashboard() {
       <div className="flex flex-1 flex-col overflow-hidden w-full">
         <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-6 shadow-sm flex-shrink-0">
           <div className="flex items-center space-x-3">
-            {showMobileDetail ? (
+            {showDetail ? (
               <button
-                onClick={() => setShowMobileDetail(false)}
-                className="text-gray-500 hover:text-gray-700 md:hidden p-1 bg-gray-100 rounded-full"
+                onClick={() => setShowDetail(false)}
+                className="text-gray-500 hover:text-gray-700 p-1 bg-gray-100 rounded-full"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
@@ -247,232 +245,221 @@ export default function VictimDashboard() {
               </button>
             )}
             <h2 className="text-base md:text-lg font-semibold text-gray-800 truncate">
-              {currentFilter} ({filteredRequests.length})
+              {showDetail ? "Request Details" : `${currentFilter} (${filteredRequests.length})`}
             </h2>
           </div>
         </header>
 
         <div className="flex flex-1 overflow-hidden bg-gray-100 relative">
           
-          {/* LEFT PANEL: Request Cards List */}
-          <section className={`w-full border-r border-gray-200 bg-white flex flex-col md:w-5/12 overflow-y-auto ${
-            showMobileDetail ? "hidden md:flex" : "flex"
-          }`}>
-            {loading && (
-              <div className="p-8 text-center text-sm text-gray-500">
-                Loading requests...
-              </div>
-            )}
-            {error && (
-              <div className="p-8 text-center text-sm text-red-500">
-                {error}
-              </div>
-            )}
-            {!loading && !error && filteredRequests.length === 0 && (
-              <div className="p-8 text-center text-sm text-gray-400">
-                No matching requests found.
-              </div>
-            )}
-
-            {!loading && !error && (
-              <div className="divide-y divide-gray-100">
-                {filteredRequests.map((req) => {
-                  const uiStyle = getStatusStyles(req);
-                  return (
-                    <button
-                      key={req._id}
-                      onClick={() => handleSelectRequest(req)}
-                      className={`w-full text-left p-4 hover:bg-slate-50 flex items-start space-x-3 border-l-4 transition ${
-                        req._id === selectedRequest?._id
-                          ? "bg-indigo-50/40 border-indigo-600"
-                          : uiStyle.border
-                      }`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1 gap-2">
-                          <div className="flex items-center space-x-1.5 truncate">
-                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded whitespace-nowrap ${uiStyle.badge}`}>
-                              {uiStyle.text}
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2 overflow-hidden">
-                            <span className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded whitespace-nowrap ${getPriorityColor(req.priority)}`}>
-                              {req.priority}
-                            </span>
-                            <span className="text-xs text-gray-400 whitespace-nowrap">
-                              {new Date(req.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                        <h4 className="text-sm font-semibold text-gray-900 capitalize truncate">
-                          {req.requestedItems?.map((item) => item.itemType).join(", ") || "No Items"}
-                        </h4>
-                        <p className="text-xs text-gray-500 mt-1 truncate">
-                          {req.description}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          {/* RIGHT PANEL: Detailed Information View */}
-          <section className={`w-full md:w-7/12 flex flex-col bg-white overflow-y-auto ${
-            showMobileDetail ? "flex" : "hidden md:flex"
-          }`}>
-            {selectedRequest ? (
-              <>
-                <div className="p-4 md:p-6 border-b border-gray-200 bg-white sticky top-0 z-10 shadow-sm md:shadow-none">
-                  <button 
-                    onClick={() => setShowMobileDetail(false)}
-                    className="md:hidden text-indigo-600 text-xs font-semibold flex items-center mb-2"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back to list
-                  </button>
-                  
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`px-2.5 py-1 text-xs font-bold uppercase rounded ${getStatusStyles(selectedRequest).badge}`}>
-                        Lifecycle: {getStatusStyles(selectedRequest).text}
-                      </span>
-                      <span className={`px-2 py-1 text-xs uppercase font-bold rounded ${getPriorityColor(selectedRequest.priority)}`}>
-                        {selectedRequest.priority} Priority
-                      </span>
-                    </div>
-                    <span className="text-xs font-mono text-gray-400 break-all">
-                      ID: {selectedRequest._id}
-                    </span>
-                  </div>
-                  <h3 className="text-lg md:text-xl font-bold text-gray-900 capitalize leading-snug flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-indigo-500" />
-                    Request Tracking Summary
-                  </h3>
+          {/* FULL SCREEN REQUEST LIST PANEL */}
+          {!showDetail ? (
+            <section className="w-full bg-white flex flex-col overflow-y-auto">
+              {loading && (
+                <div className="p-8 text-center text-sm text-gray-500">
+                  Loading requests...
                 </div>
+              )}
+              {error && (
+                <div className="p-8 text-center text-sm text-red-500">
+                  {error}
+                </div>
+              )}
+              {!loading && !error && filteredRequests.length === 0 && (
+                <div className="p-8 text-center text-sm text-gray-400">
+                  No matching requests found.
+                </div>
+              )}
 
-                <div className="p-4 md:p-6 space-y-5 md:space-y-6">
-                  
-                  {/* Requested Items Dynamic Breakdown */}
-                  <div>
-                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                      Requested Supplies Break Down
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {selectedRequest.requestedItems && selectedRequest.requestedItems.length > 0 ? (
-                        selectedRequest.requestedItems.map((item, idx) => (
-                          /* {/* ERROR FIXED: Mapped wrapper to dynamic status colors based on schema itemStatus */
-                          <div key={idx} className={`p-3 rounded-lg border flex flex-col justify-between space-y-2 ${getItemStatusColor(item.itemStatus)}`}>
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-bold capitalize text-gray-900 flex items-center gap-1.5">
-                                <Package className="w-4 h-4 text-slate-500" />
-                                {item.itemType}
-                              </span>
-                              <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-white/80 border text-gray-700">
-                                {item.itemStatus}
+              {!loading && !error && (
+                <div className="divide-y divide-gray-100 max-w-5xl w-full mx-auto px-4 md:px-6 py-2">
+                  {filteredRequests.map((req) => {
+                    const uiStyle = getStatusStyles(req);
+                    return (
+                      <button
+                        key={req._id}
+                        onClick={() => handleSelectRequest(req)}
+                        className={`w-full text-left p-5 hover:bg-slate-50 flex items-start space-x-3 border-l-4 transition my-2 rounded-r-lg shadow-sm bg-white ${
+                          req._id === selectedRequest?._id
+                            ? "border-indigo-600 bg-indigo-50/10"
+                            : uiStyle.border
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1 gap-2">
+                            <div className="flex items-center space-x-1.5 truncate">
+                              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded whitespace-nowrap ${uiStyle.badge}`}>
+                                {uiStyle.text}
                               </span>
                             </div>
-                            <div className="flex items-center justify-between text-xs font-medium text-gray-700">
-                              <span>Req Qty: <strong className="text-gray-900">{item.requiredQuantity}</strong></span>
-                              <span>Fulfilled: <strong className="text-emerald-700">{item.fulfilledQuantity}</strong></span>
+                            <div className="flex items-center space-x-2 overflow-hidden">
+                              <span className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded whitespace-nowrap ${getPriorityColor(req.priority)}`}>
+                                {req.priority}
+                              </span>
+                              <span className="text-xs text-gray-400 whitespace-nowrap">
+                                {new Date(req.createdAt).toLocaleDateString()}
+                              </span>
                             </div>
                           </div>
-                        ))
-                      ) : (
-                        <div className="text-sm italic text-gray-400 col-span-2">No custom items defined.</div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Narrative Statement */}
-                  <div>
-                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                      Description Log
-                    </h4>
-                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm text-gray-700 leading-relaxed shadow-inner break-words">
-                      "{selectedRequest.description}"
-                    </div>
-                  </div>
-
-                  {/* Reported Location */}
-                  <div>
-                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                      Reported Location
-                    </h4>
-                    <div className="flex items-start text-sm text-gray-700 bg-slate-50 p-3 rounded-lg border border-gray-200">
-                      <MapPin className="w-4 h-4 text-rose-500 mr-2 flex-shrink-0 mt-0.5" />
-                      <span className="break-words">{selectedRequest.location}</span>
-                    </div>
-                  </div>
-
-                  {/* POPULATED DATABASE GRIDS */}
-                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider pt-2">
-                    Assignment & Resource Allocations
-                  </h4>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* 1. Populated Approved By field */}
-                    <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm flex flex-col justify-between">
-                      <div>
-                        <span className="text-xs text-gray-400 block mb-2 font-medium">
-                          Approved By Authorities
+                          <h4 className="text-sm font-semibold text-gray-900 capitalize truncate">
+                            {req.requestedItems?.map((item) => item.itemType).join(", ") || "No Items"}
+                          </h4>
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-2 break-words">
+                            {req.description}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          ) : (
+            /* FULL SCREEN DETAILED INFORMATION VIEW */
+            <section className="w-full flex flex-col bg-white overflow-y-auto">
+              {selectedRequest ? (
+                <div className="max-w-4xl w-full mx-auto px-4 md:px-6 py-6">
+                  <div className="pb-4 border-b border-gray-200 bg-white mb-6">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`px-2.5 py-1 text-xs font-bold uppercase rounded ${getStatusStyles(selectedRequest).badge}`}>
+                          Lifecycle: {getStatusStyles(selectedRequest).text}
                         </span>
-                        {selectedRequest.approvedBy ? (
+                        <span className={`px-2 py-1 text-xs uppercase font-bold rounded ${getPriorityColor(selectedRequest.priority)}`}>
+                          {selectedRequest.priority} Priority
+                        </span>
+                      </div>
+                      <span className="text-xs font-mono text-gray-400 break-all">
+                        ID: {selectedRequest._id}
+                      </span>
+                    </div>
+                    <h3 className="text-lg md:text-xl font-bold text-gray-900 capitalize leading-snug flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-indigo-500" />
+                      Request Tracking Summary
+                    </h3>
+                  </div>
+
+                  <div className="space-y-5 md:space-y-6">
+                    {/* Requested Items Dynamic Breakdown */}
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                        Requested Supplies Break Down
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {selectedRequest.requestedItems && selectedRequest.requestedItems.length > 0 ? (
+                          selectedRequest.requestedItems.map((item, idx) => (
+                            <div key={idx} className={`p-3 rounded-lg border flex flex-col justify-between space-y-2 ${getItemStatusColor(item.itemStatus)}`}>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold capitalize text-gray-900 flex items-center gap-1.5">
+                                  <Package className="w-4 h-4 text-slate-500" />
+                                  {item.itemType}
+                                </span>
+                                <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-white/80 border text-gray-700">
+                                  {item.itemStatus}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-xs font-medium text-gray-700">
+                                <span>Req Qty: <strong className="text-gray-900">{item.requiredQuantity}</strong></span>
+                                <span>Fulfilled: <strong className="text-emerald-700">{item.fulfilledQuantity}</strong></span>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-sm italic text-gray-400 col-span-2">No custom items defined.</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Narrative Statement */}
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                        Description Log
+                      </h4>
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm text-gray-700 leading-relaxed shadow-inner break-words">
+                        "{selectedRequest.description}"
+                      </div>
+                    </div>
+
+                    {/* Reported Location */}
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                        Reported Location
+                      </h4>
+                      <div className="flex items-start text-sm text-gray-700 bg-slate-50 p-3 rounded-lg border border-gray-200">
+                        <MapPin className="w-4 h-4 text-rose-500 mr-2 flex-shrink-0 mt-0.5" />
+                        <span className="break-words">{selectedRequest.location}</span>
+                      </div>
+                    </div>
+
+                    {/* POPULATED DATABASE GRIDS */}
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider pt-2">
+                      Assignment & Resource Allocations
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* 1. Populated Approved By field */}
+                      <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm flex flex-col justify-between">
+                        <div>
+                          <span className="text-xs text-gray-400 block mb-2 font-medium">
+                            Approved By Authorities
+                          </span>
+                          {selectedRequest.approvedBy ? (
+                            <div className="text-sm space-y-1">
+                              <p className="font-semibold text-gray-900 flex items-center">
+                                <ShieldAlert className="w-4 h-4 text-indigo-500 mr-2 flex-shrink-0" />{" "}
+                                <span className="truncate">{selectedRequest.approvedBy.fullName}</span>
+                              </p>
+                              <p className="text-gray-500 flex items-center text-xs">
+                                <Phone className="w-3.5 h-3.5 text-gray-400 mr-2 flex-shrink-0" />{" "}
+                                <span>{selectedRequest.approvedBy.phone}</span>
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-sm italic text-gray-400 block">
+                              Awaiting official approval review.
+                            </span>
+                          )}
+                        </div>
+                        {selectedRequest.approvedAt && (
+                          <div className="mt-3 pt-2 border-t border-gray-100 text-[11px] text-green-700 font-medium">
+                            📅 Approved At:{" "}
+                            {new Date(selectedRequest.approvedAt).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 2. Populated Assigned Volunteer */}
+                      <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+                        <span className="text-xs text-gray-400 block mb-2 font-medium">
+                          Assigned On-Field Volunteer
+                        </span>
+                        {selectedRequest.assignedVolunteer ? (
                           <div className="text-sm space-y-1">
                             <p className="font-semibold text-gray-900 flex items-center">
-                              <ShieldAlert className="w-4 h-4 text-indigo-500 mr-2 flex-shrink-0" />{" "}
-                              <span className="truncate">{selectedRequest.approvedBy.fullName}</span>
+                              <User className="w-4 h-4 text-emerald-500 mr-2 flex-shrink-0" />{" "}
+                              <span className="truncate">{selectedRequest.assignedVolunteer.fullName}</span>
                             </p>
                             <p className="text-gray-500 flex items-center text-xs">
                               <Phone className="w-3.5 h-3.5 text-gray-400 mr-2 flex-shrink-0" />{" "}
-                              <span>{selectedRequest.approvedBy.phone}</span>
+                              <span>{selectedRequest.assignedVolunteer.phone}</span>
                             </p>
                           </div>
                         ) : (
                           <span className="text-sm italic text-gray-400 block">
-                            Awaiting official approval review.
+                            No volunteer assigned yet.
                           </span>
                         )}
                       </div>
-                      {selectedRequest.approvedAt && (
-                        <div className="mt-3 pt-2 border-t border-gray-100 text-[11px] text-green-700 font-medium">
-                          📅 Approved At:{" "}
-                          {new Date(selectedRequest.approvedAt).toLocaleString()}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 2. Populated Assigned Volunteer */}
-                    <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
-                      <span className="text-xs text-gray-400 block mb-2 font-medium">
-                        Assigned On-Field Volunteer
-                      </span>
-                      {selectedRequest.assignedVolunteer ? (
-                        <div className="text-sm space-y-1">
-                          <p className="font-semibold text-gray-900 flex items-center">
-                            <User className="w-4 h-4 text-emerald-500 mr-2 flex-shrink-0" />{" "}
-                            <span className="truncate">{selectedRequest.assignedVolunteer.fullName}</span>
-                          </p>
-                          <p className="text-gray-500 flex items-center text-xs">
-                            <Phone className="w-3.5 h-3.5 text-gray-400 mr-2 flex-shrink-0" />{" "}
-                            <span>{selectedRequest.assignedVolunteer.phone}</span>
-                          </p>
-                        </div>
-                      ) : (
-                        <span className="text-sm italic text-gray-400 block">
-                          No volunteer assigned yet.
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
-              </>
-            ) : (
-              <div className="flex h-full items-center justify-center text-gray-400 p-6 text-center">
-                Select a request from the list to view live updates.
-              </div>
-            )}
-          </section>
+              ) : (
+                <div className="flex h-full items-center justify-center text-gray-400 p-6 text-center">
+                  Select a request from the list to view live updates.
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </div>
     </div>

@@ -129,10 +129,10 @@ const updateInventory = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Only NGO and Admin can update inventory");
   }
   const { id } = req.params;
-  console.log("Inventory ID:" , id)
+  console.log("Inventory ID:", id);
   const cleanId = id?.trim();
 
-  console.log("CleanId: " , cleanId)
+  console.log("CleanId: ", cleanId);
 
   validateId(cleanId, "Inventory");
   const existingInventory = await Inventory.findById(cleanId);
@@ -176,6 +176,16 @@ const updateInventory = asyncHandler(async (req, res) => {
     { new: true, runValidators: true },
   );
 
+  if (inventory.quantity == 0) {
+    inventory.status = "out-of-stock";
+  }
+
+  if (inventory.quantity <= 50) {
+    inventory.status = "low-stock";
+  } else inventory.status = "available";
+
+  await inventory.save();
+
   return res
     .status(200)
     .json(new ApiResponse(200, inventory, "Inventory updated successfully"));
@@ -193,13 +203,12 @@ const deleteInventory = asyncHandler(async (req, res) => {
   }
 
   const { id } = req.params;
-  console.log("InventoryId:" , id)
+  console.log("InventoryId:", id);
   const cleanId = id?.trim();
 
   validateId(cleanId, "Inventory");
 
-  console.log("CleanId:" , cleanId)
-
+  console.log("CleanId:", cleanId);
 
   const inventory = await Inventory.findById(cleanId);
 
@@ -222,4 +231,10 @@ const deleteInventory = asyncHandler(async (req, res) => {
 });
 
 // File ke end mein yeh kar
-export { createInventory, getAllMyInventory, getInventoryById, updateInventory, deleteInventory };
+export {
+  createInventory,
+  getAllMyInventory,
+  getInventoryById,
+  updateInventory,
+  deleteInventory,
+};

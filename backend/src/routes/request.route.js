@@ -11,7 +11,9 @@ import {
   assignRequest,
   
   
+  
 } from "../controllers/request.controller.js"; // Aapka controller path
+import { updateDeliveryStatus } from "../controllers/allocation.controller.js";
 
 const router = Router();
 
@@ -38,6 +40,7 @@ router.patch("/reject/:requestId", verifyJWT, rejectRequest);
 
 // Volunteer Lifecycle Actions Pipeline
 router.patch("/assign/:requestId", verifyJWT, assignRequest);
+router.route("/:id/status").patch(verifyJWT, updateDeliveryStatus);
 
 
 

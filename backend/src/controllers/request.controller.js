@@ -44,24 +44,28 @@ const createRequest = asyncHandler(async (req, res) => {
 
   // Items ke andar ka data validate karo (Ki har item me type aur positive quantity ho)
   const isInvalidItems = items.some(
-    (item) => !item.itemType || !item.requiredQuantity || item.requiredQuantity <= 0
+    (item) =>
+      !item.itemType || !item.requiredQuantity || item.requiredQuantity <= 0,
   );
 
   if (isInvalidItems) {
-    throw new ApiError(400, "Invalid items format or negative quantity provided");
+    throw new ApiError(
+      400,
+      "Invalid items format or negative quantity provided",
+    );
   }
 
   // 3. Robust Duplicate Check (For Objects Inside Array)
   // Hum check karenge ki kya isi user ne same location par inhi types ke items ki request pehle se dali hai
   // $elemMatch se hum sub-documents ke andar types check kar sakte hain
-  const itemTypesArray = items.map(i => i.itemType);
+  const itemTypesArray = items.map((i) => i.itemType);
 
   const existedRequest = await Request.findOne({
     createdBy: req.user._id,
     location: location.trim(),
     description: description.trim(),
     "requestedItems.itemType": { $all: itemTypesArray }, // 👈 Check karega ki yeh saare types pehle se uski kisi request me hain ya nahi
-    status: "pending" // Agar purani request already fulfill ho chuki hai, toh nayi request banane denge
+    status: "pending", // Agar purani request already fulfill ho chuki hai, toh nayi request banane denge
   });
 
   if (existedRequest) {
@@ -70,11 +74,11 @@ const createRequest = asyncHandler(async (req, res) => {
 
   // 4. Create Request in Database
   // Frontend se aaye items array ko requestedItems me map kar dete hain
-  const requestedItems = items.map(item => ({
+  const requestedItems = items.map((item) => ({
     itemType: item.itemType,
     requiredQuantity: Number(item.requiredQuantity),
     fulfilledQuantity: 0,
-    itemStatus: "pending"
+    itemStatus: "pending",
   }));
 
   const createdRequest = await Request.create({
@@ -83,7 +87,7 @@ const createRequest = asyncHandler(async (req, res) => {
     location: location.trim(),
     priority: priority || "medium",
     createdBy: req.user._id,
-    status: "pending"
+    status: "pending",
   });
 
   // 5. Response Return
@@ -186,8 +190,7 @@ const getAllRequest = asyncHandler(async (req, res) => {
     priority,
     location,
     disasterId,
-    isVolunteerAssigned
-    
+    isVolunteerAssigned,
   } = req.query;
 
   const filter = {};
@@ -195,7 +198,7 @@ const getAllRequest = asyncHandler(async (req, res) => {
   if (requestType) filter.requestType = requestType;
   if (status) filter.status = status;
   if (priority) filter.priority = priority;
-  if(isVolunteerAssigned) filter.isVolunteerAssigned = isVolunteerAssigned
+  if (isVolunteerAssigned) filter.isVolunteerAssigned = isVolunteerAssigned;
 
   if (location) {
     filter.location = {
@@ -209,8 +212,6 @@ const getAllRequest = asyncHandler(async (req, res) => {
     validateId(cleanDisasterId, "Disaster");
     filter.disaster = cleanDisasterId;
   }
-
-  
 
   const requests = await Request.find(filter)
     .populate("createdBy", "fullName email role")
@@ -270,12 +271,18 @@ const assignRequest = asyncHandler(async (req, res) => {
 
   ensureApproved(request);
 
-
   if (request.assignedVolunteer) {
     throw new ApiError(400, "Request already assigned to a volunteer");
   }
 
+  if (request.deliveryStatus !== "Allocated") {
+    throw new ApiError(403, "Request has to be allocated");
+  }
+
+  request.deliveryStatus = "Assigned";
+
   request.isVolunteerAssigned = true;
+
   request.assignedVolunteer = req.user._id;
 
   await request.save();
@@ -291,8 +298,6 @@ const assignRequest = asyncHandler(async (req, res) => {
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 
-
-
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
@@ -303,9 +308,8 @@ const getMyRequests = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
   })
     .populate("assignedVolunteer", "fullName phone")
-    .populate("approvedBy", "fullName phone") 
+    .populate("approvedBy", "fullName phone")
     // 👈 Volunteer ka naam aur phone fetch karne ke liye
-   
 
     .sort({ createdAt: -1 });
 
@@ -327,38 +331,77 @@ const getMyAssignedRequests = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Only volunteers can view assigned requests");
   }
 
-  const { status } = req.query;
+  // 2. Extract Query Parameters
+  const { status, priority, requestType } = req.query;
 
-  // 2. Base Query: Hamesha logged-in volunteer ki hi requests aayengi
-  const queryConditions = {
+  // 3. Dynamic Filter Building
+  const filter = {
+    // Note: Agar aapki schema mein logged-in user ko register karne ke liye
+    // field name 'volunteer' ya 'assignedVolunteer' hai, toh uske hisab se match karein.
     assignedVolunteer: req.user._id,
+    isVolunteerAssigned: true,
   };
 
-  // 3. Status handling logic
-  // Agar status aaya hai aur woh "all" NAHI hai, tabhi query mein status filter lagao
-  if (status && status !== "all") {
-    queryConditions.status = status;
-  }
-  // Agar status "all" hai, toh 'queryConditions.status' set hi nahi hoga.
-  // Iska matlab automatically saari statuses ("approved", "partially-fulfilled", "fulfilled") fetch ho jayengi.
+  // --- Dynamic String Validation & Normalization ---
 
-  // 4. Fetch from Database
-  const myAssignedRequests = await Request.find(queryConditions)
+  // Status Filter Validation
+  if (
+    status &&
+    status.trim() !== "" &&
+    status.toLowerCase() !== "all" &&
+    status.toLowerCase() !== "all statuses"
+  ) {
+    // Frontend capital bhej sakta hai (e.g., 'Fulfilled'), usko database layout se query karne ke liye lowercase karein
+    filter.status = status.toLowerCase();
+  }
+
+  // Priority Filter Validation
+  if (
+    priority &&
+    priority.trim() !== "" &&
+    priority.toLowerCase() !== "all" &&
+    priority.toLowerCase() !== "all categories"
+  ) {
+    // Agar string me 'Critical Priority' pura aa raha hai, to sirf pehla word extract karein
+    const priorityClean = priority.split(" ")[0].toLowerCase();
+    filter.priority = priorityClean;
+  }
+
+  // Category / Item Type Filter Validation (Nested Array Field Check)
+  if (
+    requestType &&
+    requestType.trim() !== "" &&
+    requestType.toLowerCase() !== "all" &&
+    requestType.toLowerCase() !== "all categories"
+  ) {
+    // Case-insensitive matching target arrays tracking ke liye dynamic Regex use karein
+    filter["requestedItems.itemType"] = {
+      $regex: new RegExp(`^${requestType}$`, "i"),
+    };
+  }
+
+  // 4. Fetch from Database with Population
+  const myAssignedRequests = await Request.find(filter)
     .populate("createdBy", "fullName phone")
     .populate("approvedBy", "fullName phone")
     .sort({ createdAt: -1 });
 
+  // 5. Response Return
   return res
     .status(200)
-    .json(new ApiResponse(200, myAssignedRequests, "Requests fetched successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        myAssignedRequests,
+        `Requests fetched successfully. Found: ${myAssignedRequests.length} matching grid bounds.`,
+      ),
+    );
 });
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 export {
   createRequest,
@@ -367,7 +410,6 @@ export {
   rejectRequest,
   getRequestById,
   assignRequest,
-  
   getMyRequests,
   getMyAssignedRequests,
 };

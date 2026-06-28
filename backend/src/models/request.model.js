@@ -79,6 +79,12 @@ const requestSchema = new mongoose.Schema(
       
     },
 
+    deliveryStatus:{
+        type: String,
+        enum : ["Request Placed" , "Allocated" , "Assigned" , "Dispatched" , "Out for delivery" , "Delivered"],
+        default: "Request Placed"
+    },
+
     assignedVolunteer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
