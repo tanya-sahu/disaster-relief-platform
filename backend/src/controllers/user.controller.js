@@ -78,6 +78,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
 // 🔓 LOGIN USER
 const loginUser = asyncHandler(async (req, res) => {
+  console.log("Login")
   const { email, password } = req.body;
 
   if (!email || !password) {
