@@ -2,7 +2,6 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Request } from "../models/request.model.js";
-import { Resource } from "../models/resource.model.js";
 import { Shelter } from "../models/shelter.model.js";
 import mongoose from "mongoose";
 
